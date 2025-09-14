@@ -1,0 +1,88 @@
+{
+    "folders": [
+		{
+			"path": ".",
+			"name": "proj",
+		}
+	],
+	"extensions": {
+		"recommendations": [
+			"ms-vscode.cpptools",
+			"ms-vscode.cpptools-extension-pack",
+			"ms-vscode.makefile-tools",
+			"christian-kohler.path-intellisense",
+			"esbenp.prettier-vscode",
+			"mhutchie.git-graph",
+			"jeff-hykin.better-cpp-syntax",
+			"ms-vscode-remote.remote-wsl",
+			"ms-vscode-remote.vscode-remote-extensionpack",
+			"ms-vscode-remote.remote-ssh",
+            "Alibaba-Cloud.tongyi-lingma",
+            "Anthropic.claude-code",
+            "RooVeterinaryInc.roo-cline",
+		]
+	},
+	"settings": {
+		"editor.tabSize": 4,
+		"editor.insertSpaces": true,
+        "C_Cpp.default.browse.databaseFilename": "${workspaceFolder}/.vscode/.browse.vc.db",
+        // "C_Cpp.loggingLevel": "Debug",
+		"C_Cpp.default.compilerPath": "/usr/bin/gcc",
+		"C_Cpp.default.cStandard": "c17",
+		"C_Cpp.default.cppStandard": "c++17",
+		"C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+		"C_Cpp.default.includePath": [
+			"${workspaceFolder}/include/innet",
+		],
+		"C_Cpp.default.defines": [
+			"_GNU_SOURCE",
+		],
+		"C_Cpp.default.browse.path": [
+			"${workspaceFolder}/src",
+		],
+		
+		"makefile.makefilePath": "${workspaceFolder}/Makefile",
+		"makefile.configureOnOpen": true,
+		"makefile.buildBeforeLaunch": true,
+		"C_Cpp.autoAddFileAssociations": false,
+
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "Build Demo",
+				"command": "make clean && make ",
+				"type": "shell",
+				"args": [],
+				"problemMatcher": [
+					"$tsc"
+				],
+				"presentation": {
+					"reveal": "always"
+				},
+				"group": "build"
+			},
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Debug Demo1",
+				"type": "cppdbg",
+				"request": "launch",
+				"program": "${workspaceFolder}/bin/demo1",
+				"args": [],
+				"stopAtEntry": true,
+				"preLaunchTask": "Build Demo",
+				"cwd": "${workspaceFolder}",
+				"environment": [],
+				"externalConsole": false,
+				"MIMode": "gdb",
+				"miDebuggerPath": "/usr/bin/gdb",
+				"setupCommands": []
+			},
+		],
+	}
+}
