@@ -13,11 +13,11 @@
 // 1. 全局控制变量和线程安全打印
 // ====================================================================
 
-// static bool s_system_running = true;
+/* static bool s_system_running = true; */
 static atomic_bool s_system_running = true;
 static pthread_mutex_t s_print_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-// 线程安全的打印函数
+/* 线程安全的打印函数 */
 void print_safe(const char *source, const char *message)
 {
     pthread_mutex_lock(&s_print_mutex);
@@ -44,7 +44,7 @@ typedef struct
 // 3. 节点工作线程函数 (取代回调函数)
 // ====================================================================
 
-// --- 控制器节点工作线程 ---
+/* --- 控制器节点工作线程 --- */
 void *controller_thread_func(void *arg)
 {
     innet_id_t controller_id = *(innet_id_t *)arg;
@@ -58,18 +58,18 @@ void *controller_thread_func(void *arg)
 
     while (s_system_running)
     {
-        // 阻塞等待事件
+        /* 阻塞等待事件 */
         int res = innet_receive(controller_id, &event, event_buffer, sizeof(event_buffer), 1000); // 1秒超时
         if (res == INN_OK)
         {
-            // 处理来自传感器的温度发布
+            /* 处理来自传感器的温度发布 */
             if (event.event == INN_EVENT_PUBLISH && event.size == sizeof(TemperatureData))
             {
                 const TemperatureData *data = (const TemperatureData *)event_buffer;
                 snprintf(buffer, sizeof(buffer), "Received temperature: %.2f C", data->temperature);
                 print_safe("CoolingController Thread", buffer);
 
-                // 控制逻辑：温度高于28度则开启风扇
+                /* 控制逻辑：温度高于28度则开启风扇 */
                 if (data->temperature > 28.0)
                 {
                     FanCommand cmd = {1, 80}; // turn_on = true, speed = 80%
@@ -77,7 +77,7 @@ void *controller_thread_func(void *arg)
                     innet_publish(controller_id, &cmd, sizeof(cmd));
                 }
             }
-            // 处理来自HMI的紧急通知
+            /* 处理来自HMI的紧急通知 */
             else if (event.event == INN_EVENT_NOTIFY && event.size == sizeof(FanCommand))
             {
                 const FanCommand *cmd = (const FanCommand *)event_buffer;
@@ -87,11 +87,11 @@ void *controller_thread_func(void *arg)
                     innet_publish(controller_id, cmd, sizeof(*cmd));
                 }
             }
-            // 处理传感器的信号 (新功能演示)
+            /* 处理传感器的信号 (新功能演示) */
             else if (event.event == INN_EVENT_PUBLISH_SIG)
             {
                 print_safe("CoolingController Thread", "Received PUBLISH_SIGNAL from sensor. Checking latest temp...");
-                // 收到信号后主动拉取最新数据
+                /* 收到信号后主动拉取最新数据 */
                 TemperatureData latest_temp;
                 size_t sz = sizeof(latest_temp);
                 int pull_res = innet_pull(controller_id, event.sender, &latest_temp, &sz, 0); // 0 timeout
@@ -109,8 +109,8 @@ void *controller_thread_func(void *arg)
         }
         else if (res == INN_ERR_TIMEOUT)
         {
-            // 超时，可以做一些周期性检查
-            // print_safe("CoolingController Thread", "Timed out waiting for event...");
+            /* 超时，可以做一些周期性检查 */
+            /* print_safe("CoolingController Thread", "Timed out waiting for event..."); */
         }
         else if (res == INN_ERR_CLOSED)
         {
@@ -127,7 +127,7 @@ void *controller_thread_func(void *arg)
     return NULL;
 }
 
-// --- 风扇执行器节点工作线程 ---
+/* --- 风扇执行器节点工作线程 --- */
 void *fan_actuator_thread_func(void *arg)
 {
     innet_id_t fan_id = *(innet_id_t *)arg;
@@ -160,7 +160,7 @@ void *fan_actuator_thread_func(void *arg)
         }
         else if (res == INN_ERR_TIMEOUT)
         {
-            // 超时处理
+            /* 超时处理 */
         }
         else if (res == INN_ERR_CLOSED)
         {
@@ -172,7 +172,7 @@ void *fan_actuator_thread_func(void *arg)
     return NULL;
 }
 
-// --- HMI节点工作线程 ---
+/* --- HMI节点工作线程 --- */
 void *hmi_thread_func(void *arg)
 {
     innet_id_t hmi_id = *(innet_id_t *)arg;
@@ -182,13 +182,13 @@ void *hmi_thread_func(void *arg)
 
     char buffer[256];
 
-    // 1. 启动后立即PULL一次传感器的初始值
+    /* 1. 启动后立即PULL一次传感器的初始值 */
     sleep(1); // 等待传感器可能发布第一个值
     TemperatureData initial_temp;
     size_t sz = sizeof(initial_temp);
     print_safe("HMI Thread", "Attempting to PULL initial temperature...");
     int ret = innet_pull(hmi_id, INN_INVALID_ID, &initial_temp, &sz, 0); // 我们需要知道传感器的ID
-    // 为了演示，我们假设知道名字，先查找ID
+    /* 为了演示，我们假设知道名字，先查找ID */
     innet_id_t sensor_id;
     if (innet_find_node("sensor/temp", &sensor_id) == INN_OK)
     {
@@ -210,7 +210,7 @@ void *hmi_thread_func(void *arg)
         print_safe("HMI Thread", "Could not find sensor node ID for pull.");
     }
 
-    // 2. 模拟HMI在5秒后发送一个紧急通知
+    /* 2. 模拟HMI在5秒后发送一个紧急通知 */
     sleep(5);
     print_safe("HMI Thread", "Sending urgent NOTIFY to controller.");
     FanCommand urgent_cmd = {1, 100}; // turn_on = true, speed = 100%
@@ -220,7 +220,7 @@ void *hmi_thread_func(void *arg)
         innet_notify(hmi_id, controller_id, &urgent_cmd, sizeof(urgent_cmd));
     }
 
-    // 3. HMI线程继续运行，等待关闭信号
+    /* 3. HMI线程继续运行，等待关闭信号 */
     innet_event_t event;
     char event_buffer[256];
     while (s_system_running)
@@ -241,14 +241,14 @@ void *hmi_thread_func(void *arg)
         }
         else if (res == INN_ERR_TIMEOUT)
         {
-            // 可以周期性地做一些事情
+            /* 可以周期性地做一些事情 */
         }
         else if (res == INN_ERR_CLOSED)
         {
             print_safe("HMI Thread", "Node closed. Shutting down.");
             break;
         }
-        // 简单的周期性心跳信号发送演示
+        /* 简单的周期性心跳信号发送演示 */
         static int counter = 0;
         counter++;
         if (counter % 10 == 0)
@@ -256,7 +256,7 @@ void *hmi_thread_func(void *arg)
             innet_id_t ctrl_id;
             if (innet_find_node("controller/cooling", &ctrl_id) == INN_OK)
             {
-                // 发送一个异步信号给控制器，通知它我们还活着
+                /* 发送一个异步信号给控制器，通知它我们还活着 */
                 innet_publish_signal_async(ctrl_id);
                 print_safe("HMI Thread", "Sent async PUBLISH_SIGNAL to controller.");
             }
@@ -289,7 +289,7 @@ void *sensor_thread_func(void *arg)
         print_safe("TempSensor Thread", buffer);
         innet_publish(sensor_id, &temp_data, sizeof(temp_data));
 
-        // 每发布3次，发送一个信号
+        /* 每发布3次，发送一个信号 */
         count++;
         if (count % 3 == 0)
         {
@@ -315,7 +315,7 @@ int main()
 
     srand(time(NULL));
 
-    // --- 步骤 1: 初始化innet库 ---
+    /* --- 步骤 1: 初始化innet库 --- */
     print_safe("Main", "--- System Initializing ---");
     ret = innet_init();
     if (ret != INN_OK)
@@ -324,8 +324,8 @@ int main()
         return -1;
     }
 
-    // --- 步骤 2: 创建节点 ---
-    // 创建温度传感器节点 (带缓存和latching)
+    /* --- 步骤 2: 创建节点 --- */
+    /* 创建温度传感器节点 (带缓存和latching) */
     innet_node_conf_t sensor_param = {0}; // 使用初始化器清零
     sensor_param.cache_size = sizeof(TemperatureData);
     sensor_param.flags = INN_CONF_CACHED | INN_CONF_LATCHED; // 启用缓存和闩锁
@@ -341,7 +341,7 @@ int main()
         return -1;
     }
 
-    // 创建控制器节点
+    /* 创建控制器节点 */
     innet_node_conf_t controller_param = {0};
     controller_param.event_mask = INN_EVENT_PUBLISH | INN_EVENT_NOTIFY | INN_EVENT_PUBLISH_SIG; // 关心发布、通知和信号
     controller_param.inbox_capacity = 20;
@@ -354,7 +354,7 @@ int main()
         return -1;
     }
 
-    // 创建风扇执行器节点
+    /* 创建风扇执行器节点 */
     innet_node_conf_t fan_param = {0};
     fan_param.event_mask = INN_EVENT_PUBLISH;
     fan_param.inbox_capacity = 10;
@@ -367,12 +367,12 @@ int main()
         return -1;
     }
 
-    // 创建HMI节点
+    /* 创建HMI节点 */
     innet_node_conf_t hmi_param = {0};
     hmi_param.event_mask = INN_EVENT_PUBLISH | INN_EVENT_LATCHED;
     hmi_param.inbox_capacity = 15;
     hmi_param.inbox_policy = INN_INBOX_POLICY_DROP_NEW;
-    // ret = innet_create_node(&hmi_id, "hmi/monitor", &hmi_param);
+    /* ret = innet_create_node(&hmi_id, "hmi/monitor", &hmi_param); */
     ret = innet_create_node(&hmi_id, NULL, &hmi_param);
     if (ret != INN_OK)
     {
@@ -381,17 +381,17 @@ int main()
         return -1;
     }
 
-    // --- 步骤 3: 建立订阅关系 ---
+    /* --- 步骤 3: 建立订阅关系 --- */
     print_safe("Main", "--- Establishing Subscriptions ---");
-    // 使用名称订阅，演示 pending subscription 功能
+    /* 使用名称订阅，演示 pending subscription 功能 */
     innet_subscribe_name(controller_id, "sensor/temp");
     innet_subscribe_name(fan_id, "controller/cooling");
     innet_subscribe_name(hmi_id, "sensor/temp");
 
-    // --- 步骤 4: 启动线程 ---
+    /* --- 步骤 4: 启动线程 --- */
     print_safe("Main", "--- Starting Node Threads ---");
 
-    // 为每个工作线程传递节点ID
+    /* 为每个工作线程传递节点ID */
     innet_id_t *controller_id_ptr = malloc(sizeof(innet_id_t));
     *controller_id_ptr = controller_id;
     pthread_create(&controller_tid, NULL, controller_thread_func, controller_id_ptr);
@@ -411,7 +411,7 @@ int main()
     print_safe("Main", "System is running. Simulating for 25 seconds.");
     print_safe("Main", "==================================================");
 
-    // --- 步骤 5: 模拟动态变化 ---
+    /* --- 步骤 5: 模拟动态变化 --- */
     sleep(8);
     print_safe("Main", "==================================================");
     print_safe("Main", "!!! DYNAMIC CHANGE: Fan actuator hardware failure. Removing node.");
@@ -438,7 +438,7 @@ int main()
         print_safe("Main", "Failed to unsubscribe HMI.");
     }
 
-    // --- 步骤 6: 系统关闭 ---
+    /* --- 步骤 6: 系统关闭 --- */
     sleep(11); // 总共25秒
     print_safe("Main", "==================================================");
     print_safe("Main", "--- System Shutting Down ---");

@@ -12,10 +12,10 @@ typedef uint32_t innet_id_t;
 
 #define INNET_API 
 
-// return code
-#define INN_OK                    0
-#define INN_INFO_PENDING          1
+/* return code */
 #define INN_INFO_CACHE_PULLED     2
+#define INN_INFO_PENDING          1
+#define INN_OK                    0
 #define INN_ERR_FAIL              -1
 #define INN_ERR_TIMEOUT           -2
 #define INN_ERR_NOMEM             -3
@@ -31,25 +31,26 @@ typedef uint32_t innet_id_t;
 #define INN_ERR_CLOSED            -13
 #define INN_ERR_NULL_POINTER      -14
 
-// node flag
+/* node flag */
+#define INN_CONF_NONE             (0 << 0)
 #define INN_CONF_CACHED           (1 << 0)
 #define INN_CONF_LATCHED          (1 << 1)
 
-// event type
-#define INN_EVENT_PUBLISH         0x01
-#define INN_EVENT_PULL            0x02
-#define INN_EVENT_NOTIFY          0x04
-#define INN_EVENT_PUBLISH_SIG     0x08
-#define INN_EVENT_LATCHED         0x10
+/* event type */
+#define INN_EVENT_PUBLISH         (0x01)
+#define INN_EVENT_PULL            (0x02)
+#define INN_EVENT_NOTIFY          (0x04)
+#define INN_EVENT_PUBLISH_SIG     (0x08)
+#define INN_EVENT_LATCHED         (0x10)
 
 typedef uint8_t innet_event_mask_t;
 
-// 
+/* inbox policy */
 #define INN_INBOX_POLICY_DROP_NEW  0 // default
 #define INN_INBOX_POLICY_DROP_OLD  1
 #define INN_INBOX_POLICY_BLOCK     2
 
-// node config struct
+/* node config struct */
 typedef struct {
     uint32_t cache_size;
     int32_t  notify_size_check;
@@ -59,7 +60,7 @@ typedef struct {
     innet_event_mask_t event_mask; // events that care about
 } innet_node_conf_t;
 
-// 事件结构体
+/* 事件结构体 */
 typedef struct {
     uint32_t event; // INN_EVENT_*
     innet_id_t sender;
@@ -67,9 +68,8 @@ typedef struct {
     size_t size; // 实际数据大小
 } innet_event_t;
 
-// invalid id
+/* invalid id */
 #define INN_INVALID_ID ((innet_id_t)-1)
-
 
 INNET_API int innet_init(void);
 INNET_API void innet_deinit(void);
@@ -95,4 +95,4 @@ INNET_API int innet_cache_size(innet_id_t id, size_t *size, int *has_data);
 }
 #endif
 
-#endif // INNET_H
+#endif /* INNET_H */

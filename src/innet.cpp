@@ -18,7 +18,7 @@ struct Event {
     uint32_t event;
     innet_id_t sender;
     innet_id_t receiver;
-    std::vector<uint8_t> payload; // Payload is copied
+    std::vector<uint8_t> payload; /* Payload is copied */
 };
 
 struct Node {
@@ -26,38 +26,38 @@ struct Node {
     std::string name;
     uint32_t flags;
 
-    // Cache
+    /* Cache */
     std::vector<uint8_t> cache;
     bool cache_valid;
     pthread_mutex_t cache_lock = PTHREAD_MUTEX_INITIALIZER;
 
-    // Subscribers
+    /* Subscribers */
     std::unordered_set<innet_id_t> subscribers;
     pthread_rwlock_t subs_lock = PTHREAD_RWLOCK_INITIALIZER;
 
-    // Inbox
+    /* Inbox */
     std::deque<Event> inbox;
     pthread_mutex_t inbox_lock = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t inbox_cv = PTHREAD_COND_INITIALIZER;
     uint32_t inbox_capacity;
     uint32_t inbox_policy;
 
-    // Config
+    /* Config */
     uint32_t notify_size_check;
     innet_event_mask_t event_mask;
 
-    // State
+    /* State */
     bool closed = false;
 };
 
-// Global state
+/* Global state */
 static std::unordered_map<innet_id_t, std::unique_ptr<Node>> s_nodes_by_id;
 static std::unordered_map<std::string, innet_id_t> s_nodes_by_name;
 static std::unordered_map<std::string, std::vector<innet_id_t>> s_pendins_subs_by_name;
 static pthread_rwlock_t s_nodes_rwlock = PTHREAD_RWLOCK_INITIALIZER;
 static std::atomic<innet_id_t> s_next_id{1};
 
-// Async Signal Task
+/* Async Signal Task */
 struct SignalTask {
     innet_id_t pub_id;
 };
@@ -81,6 +81,8 @@ static std::thread s_signal_thread;
 //                                                                                           █████                        
 //                                                                                          ░░░░░                         
 
+/* Get current time in milliseconds */
+/* Returns 0 on success */
 static int get_time_ms(struct timespec *ts, int timeout_ms)
 {
     struct timeval tv;
@@ -95,6 +97,8 @@ static int get_time_ms(struct timespec *ts, int timeout_ms)
     return 0;
 }
 
+/* Check if event type is enabled in mask */
+/* Returns true if enabled */
 static bool is_event_type_enabled(innet_event_mask_t mask, uint32_t event_type)
 {
     return (mask & event_type) != 0;
@@ -110,6 +114,8 @@ static bool is_event_type_enabled(innet_event_mask_t mask, uint32_t event_type)
 //  ██████████ █████     █████    ░░██████  █████        ░░█████████ ░░██████ ░░████████░░██████  ██████                                                                                                           
 // ░░░░░░░░░░ ░░░░░     ░░░░░      ░░░░░░  ░░░░░          ░░░░░░░░░   ░░░░░░   ░░░░░░░░  ░░░░░░  ░░░░░░                                                                                                            
                                                                                                                                                                                                                 
+/* Convert error code to string */
+/* Returns error description string */
 const char *innet_strerr(int err)
 {
     switch (err)
@@ -165,6 +171,8 @@ const char *innet_strerr(int err)
 //                                                 ░░██████                           
 //                                                  ░░░░░░                            
 
+/* Initialize the innet library */
+/* Returns INN_OK on success */
 int innet_init(void)
 {
     pthread_rwlockattr_t attr;
@@ -202,7 +210,7 @@ int innet_init(void)
 
             if (!pub_node) continue; // Publisher gone
             
-            // make a copy
+            /* make a copy */
             std::unordered_set<innet_id_t> local_subs;
             {
                 pthread_rwlock_rdlock(&pub_node->subs_lock);
@@ -234,7 +242,7 @@ int innet_init(void)
                     continue;
                 }
 
-                // Check for coalescing: if last event is a PUBLISH_SIG from same sender, skip
+                /* Check for coalescing: if last event is a PUBLISH_SIG from same sender, skip */
                 bool should_add = true;
                 if (!sub_node->inbox.empty()) {
                     const Event& last_ev = sub_node->inbox.back();
@@ -273,6 +281,7 @@ int innet_init(void)
     return INN_OK;
 }
 
+/* Deinitialize the innet library */
 void innet_deinit(void)
 {
     {
@@ -282,8 +291,7 @@ void innet_deinit(void)
         pthread_mutex_unlock(&s_signal_queue_lock);
     }
     
-    if (s_signal_thread.joinable())
-    {
+    if (s_signal_thread.joinable()) {
         s_signal_thread.join();
     }
 
@@ -320,6 +328,8 @@ void innet_deinit(void)
 //                                                                                              ░░██████                                                                                                           
 //                                                                                               ░░░░░░                                                                                                            
 
+/* Create a new node */
+/* Returns INN_OK on success */
 int innet_create_node(innet_id_t *id, const char *name, const innet_node_conf_t *conf)
 {
     if (!id || !conf)
@@ -350,11 +360,10 @@ int innet_create_node(innet_id_t *id, const char *name, const innet_node_conf_t 
     }
     s_nodes_by_id[node_id] = std::move(node);
 
-    if (!node_name.empty())
-    {
+    if (!node_name.empty()) {
         s_nodes_by_name[node_name] = node_id;
 
-        // Handle pending subscriptions
+        /* Handle pending subscriptions */
         auto pendins_it = s_pendins_subs_by_name.find(node_name);
         if (pendins_it != s_pendins_subs_by_name.end())
         {
@@ -370,7 +379,7 @@ int innet_create_node(innet_id_t *id, const char *name, const innet_node_conf_t 
                 sub_node->subscribers.insert(node_id);
                 pthread_rwlock_unlock(&sub_node->subs_lock);
 
-                // If latched, send latched event
+                /* If latched, send latched event */
                 if ((node->flags & INN_CONF_LATCHED) && node->cache_valid)
                 {
                     pthread_mutex_lock(&sub_node->inbox_lock);
@@ -396,6 +405,8 @@ int innet_create_node(innet_id_t *id, const char *name, const innet_node_conf_t 
     return INN_OK;
 }
 
+/* Remove a node */
+/* Returns INN_OK on success */
 int innet_remove_node(innet_id_t id)
 {
     pthread_rwlock_wrlock(&s_nodes_rwlock);
@@ -408,13 +419,13 @@ int innet_remove_node(innet_id_t id)
     Node *node = it->second.get();
     std::string name = node->name;
 
-    // Remove from name map
+    /* Remove from name map */
     if (!name.empty())
     {
         s_nodes_by_name.erase(name);
     }
 
-    // Mark as closed and wake up all waiters
+    /* Mark as closed and wake up all waiters */
     pthread_mutex_lock(&node->inbox_lock);
     node->closed = true;
     pthread_cond_broadcast(&node->inbox_cv);
@@ -425,6 +436,8 @@ int innet_remove_node(innet_id_t id)
     return INN_OK;
 }
 
+/* Get number of nodes */
+/* Returns number of nodes */
 int innet_node_num(void)
 {
     pthread_rwlock_rdlock(&s_nodes_rwlock);
@@ -433,6 +446,8 @@ int innet_node_num(void)
     return num;
 }
 
+/* Find node by name */
+/* Returns INN_OK on success */
 int innet_find_node(const char *name, innet_id_t *id)
 {
     if (!name || !id)
@@ -461,6 +476,8 @@ int innet_find_node(const char *name, innet_id_t *id)
 //                                                                    █████                                         
 //                                                                   ░░░░░                                          
 
+/* Subscribe to a publisher */
+/* Returns INN_OK on success */
 int innet_subscribe(innet_id_t subscriber, innet_id_t publisher)
 {
     Node *pub_node = nullptr;
@@ -482,7 +499,7 @@ int innet_subscribe(innet_id_t subscriber, innet_id_t publisher)
     pub_node->subscribers.insert(subscriber);
     pthread_rwlock_unlock(&pub_node->subs_lock);
 
-    // If latched and has data, send latched event immediately
+    /* If latched and has data, send latched event immediately */
     if ((pub_node->flags & INN_CONF_LATCHED))
     {
         pthread_mutex_lock(&pub_node->cache_lock);
@@ -490,11 +507,9 @@ int innet_subscribe(innet_id_t subscriber, innet_id_t publisher)
         std::vector<uint8_t> cache_data = pub_node->cache;
         pthread_mutex_unlock(&pub_node->cache_lock);
 
-        if (has_cache)
-        {
+        if (has_cache) {
             pthread_mutex_lock(&sub_node->inbox_lock);
-            if (!sub_node->closed && sub_node->inbox.size() < sub_node->inbox_capacity)
-            {
+            if (!sub_node->closed && sub_node->inbox.size() < sub_node->inbox_capacity) {
                 Event ev;
                 ev.event = INN_EVENT_LATCHED;
                 ev.sender = publisher;
@@ -510,6 +525,8 @@ int innet_subscribe(innet_id_t subscriber, innet_id_t publisher)
     return INN_OK;
 }
 
+/* Subscribe to publisher by name */
+/* Returns INN_OK, INN_INFO_PENDING, or error */
 int innet_subscribe_name(innet_id_t subscriber, const char *pub_name)
 {
     if (!pub_name)
@@ -523,7 +540,7 @@ int innet_subscribe_name(innet_id_t subscriber, const char *pub_name)
     }
     else if (res == INN_ERR_NOTFOUND)
     {
-        // Publisher not found, add to pending
+        /* Publisher not found, add to pending */
         pthread_rwlock_wrlock(&s_nodes_rwlock);
         s_pendins_subs_by_name[pub_name].push_back(subscriber);
         pthread_rwlock_unlock(&s_nodes_rwlock);
@@ -532,6 +549,8 @@ int innet_subscribe_name(innet_id_t subscriber, const char *pub_name)
     return res;
 }
 
+/* Unsubscribe from publisher */
+/* Returns INN_OK on success */
 int innet_unsubscribe(innet_id_t subscriber, innet_id_t publisher)
 {
     Node *pub_node = nullptr;
@@ -566,6 +585,8 @@ int innet_unsubscribe(innet_id_t subscriber, innet_id_t publisher)
 //                                                            ░░██████                                                                                                                  ░░██████                   
 //                                                             ░░░░░░                                                                                                                    ░░░░░░                    
 
+/* Publish data to subscribers */
+/* Returns INN_OK on success */
 int innet_publish(innet_id_t pub, const void *data, size_t size)
 {
     Node *pub_node = nullptr;
@@ -581,7 +602,7 @@ int innet_publish(innet_id_t pub, const void *data, size_t size)
         pthread_rwlock_unlock(&s_nodes_rwlock);
     }
 
-    // Update cache if enabled
+    /* Update cache if enabled */
     if (pub_node->flags & INN_CONF_CACHED)
     {
         pthread_mutex_lock(&pub_node->cache_lock);
@@ -594,7 +615,7 @@ int innet_publish(innet_id_t pub, const void *data, size_t size)
         pthread_mutex_unlock(&pub_node->cache_lock);
     }
 
-    // Make a copy
+    /* Make a copy */
     std::unordered_set<innet_id_t> local_subs;
     {
         pthread_rwlock_rdlock(&pub_node->subs_lock);
@@ -602,9 +623,8 @@ int innet_publish(innet_id_t pub, const void *data, size_t size)
         pthread_rwlock_unlock(&pub_node->subs_lock);
     }
 
-    // Dispatch
-    for (innet_id_t sub_id : local_subs)
-    {
+    /* Dispatch */
+        for (innet_id_t sub_id : local_subs) {
         Node *sub_node = nullptr;
         {
             pthread_rwlock_rdlock(&s_nodes_rwlock);
@@ -619,14 +639,12 @@ int innet_publish(innet_id_t pub, const void *data, size_t size)
         if (!sub_node || sub_node->closed)
             continue;
 
-        if (!is_event_type_enabled(sub_node->event_mask, INN_EVENT_PUBLISH))
-        {
+        if (!is_event_type_enabled(sub_node->event_mask, INN_EVENT_PUBLISH)) {
             continue;
         }
 
         pthread_mutex_lock(&sub_node->inbox_lock);
-        if (sub_node->closed)
-        {
+        if (sub_node->closed) {
             pthread_mutex_unlock(&sub_node->inbox_lock);
             continue;
         }
@@ -644,7 +662,7 @@ int innet_publish(innet_id_t pub, const void *data, size_t size)
             }
             else if (sub_node->inbox_policy == INN_INBOX_POLICY_BLOCK)
             {
-                // Wait until space is available or node is closed
+                /* Wait until space is available or node is closed */
                 struct timespec ts;
                 get_time_ms(&ts, 1000); // 1 second timeout for blocking
                 while (sub_node->inbox.size() >= sub_node->inbox_capacity && !sub_node->closed)
@@ -677,6 +695,8 @@ int innet_publish(innet_id_t pub, const void *data, size_t size)
     return INN_OK;
 }
 
+/* Publish signal to subscribers */
+/* Returns INN_OK on success */
 int innet_publish_signal(innet_id_t pub)
 {
     Node *pub_node = nullptr;
@@ -692,7 +712,7 @@ int innet_publish_signal(innet_id_t pub)
         pthread_rwlock_unlock(&s_nodes_rwlock);
     }
 
-    // Make a copy
+    /* Make a copy */
     std::unordered_set<innet_id_t> local_subs;
     {
         pthread_rwlock_rdlock(&pub_node->subs_lock);
@@ -700,8 +720,8 @@ int innet_publish_signal(innet_id_t pub)
         pthread_rwlock_unlock(&pub_node->subs_lock);
     }
 
-    // Dispatch
-    for (innet_id_t sub_id : local_subs)
+    /* Dispatch */
+    for (innet_id_t sub_id : local_subs) 
     {
         Node *sub_node = nullptr;
         {
@@ -729,7 +749,7 @@ int innet_publish_signal(innet_id_t pub)
             continue;
         }
 
-        // Check for coalescing: if last event is a PUBLISH_SIG from same sender, skip
+        /* Check for coalescing: if last event is a PUBLISH_SIG from same sender, skip */
         bool should_add = true;
         if (!sub_node->inbox.empty())
         {
@@ -785,17 +805,17 @@ int innet_publish_signal(innet_id_t pub)
     return INN_OK;
 }
 
+/* Publish signal asynchronously */
+/* Returns INN_OK on success */
 int innet_publish_signal_async(innet_id_t pub)
 {
     pthread_mutex_lock(&s_signal_queue_lock);
-    // Simple coalescing: if last task is from same publisher, don't add
+    /* Simple coalescing: if last task is from same publisher, don't add */
     bool should_add = true;
-    if (!s_signal_task_queue.empty() && s_signal_task_queue.back().pub_id == pub)
-    {
+    if (!s_signal_task_queue.empty() && s_signal_task_queue.back().pub_id == pub) {
         should_add = false;
     }
-    if (should_add)
-    {
+    if (should_add) {
         SignalTask task{pub};
         s_signal_task_queue.push_back(task);
         pthread_cond_signal(&s_signal_queue_cv);
@@ -804,6 +824,8 @@ int innet_publish_signal_async(innet_id_t pub)
     return INN_OK;
 }
 
+/* Send notification to target node */
+/* Returns INN_OK on success */
 int innet_notify(innet_id_t sender, innet_id_t target, const void *data, size_t size)
 {
     if (!data) return INN_ERR_NULL_POINTER;
@@ -833,29 +855,21 @@ int innet_notify(innet_id_t sender, innet_id_t target, const void *data, size_t 
         return INN_ERR_CLOSED;
     }
 
-    if (target_node->inbox.size() >= target_node->inbox_capacity)
-    {
-        if (target_node->inbox_policy == INN_INBOX_POLICY_DROP_NEW)
-        {
+    if (target_node->inbox.size() >= target_node->inbox_capacity) {
+        if (target_node->inbox_policy == INN_INBOX_POLICY_DROP_NEW) {
             pthread_mutex_unlock(&target_node->inbox_lock);
             return INN_ERR_BUSY;
-        }
-        else if (target_node->inbox_policy == INN_INBOX_POLICY_DROP_OLD)
-        {
+        } else if (target_node->inbox_policy == INN_INBOX_POLICY_DROP_OLD) {
             target_node->inbox.pop_front();
-        }
-        else if (target_node->inbox_policy == INN_INBOX_POLICY_BLOCK)
-        {
+        } else if (target_node->inbox_policy == INN_INBOX_POLICY_BLOCK) {
             struct timespec ts;
             get_time_ms(&ts, 1000);
-            while (target_node->inbox.size() >= target_node->inbox_capacity && !target_node->closed)
-            {
+            while (target_node->inbox.size() >= target_node->inbox_capacity && !target_node->closed) {
                 int res = pthread_cond_timedwait(&target_node->inbox_cv, &target_node->inbox_lock, &ts);
                 if (res == ETIMEDOUT)
                     break;
             }
-            if (target_node->inbox.size() >= target_node->inbox_capacity || target_node->closed)
-            {
+            if (target_node->inbox.size() >= target_node->inbox_capacity || target_node->closed) {
                 pthread_mutex_unlock(&target_node->inbox_lock);
                 return INN_ERR_BUSY;
             }
@@ -874,6 +888,8 @@ int innet_notify(innet_id_t sender, innet_id_t target, const void *data, size_t 
     return INN_OK;
 }
 
+/* Pull cached data from target node */
+/* Returns INN_INFO_CACHE_PULLED or error */
 int innet_pull(innet_id_t requester, innet_id_t target, void *buf, size_t *inout_size, int timeout_ms)
 {
     if (!buf || !inout_size)
@@ -892,14 +908,12 @@ int innet_pull(innet_id_t requester, innet_id_t target, void *buf, size_t *inout
         pthread_rwlock_unlock(&s_nodes_rwlock);
     }
 
-    if (!(target_node->flags & INN_CONF_CACHED))
-    {
+    if (!(target_node->flags & INN_CONF_CACHED)) {
         return INN_ERR_NOSUPPORT;
     }
 
     pthread_mutex_lock(&target_node->cache_lock);
-    if (!target_node->cache_valid)
-    {
+    if (!target_node->cache_valid) {
         pthread_mutex_unlock(&target_node->cache_lock);
         return INN_ERR_NODATA;
     }
@@ -912,6 +926,8 @@ int innet_pull(innet_id_t requester, innet_id_t target, void *buf, size_t *inout
     return INN_INFO_CACHE_PULLED;
 }
 
+/* Receive event from inbox */
+/* Returns INN_OK on success */
 int innet_receive(innet_id_t receiver, innet_event_t *ev, void *buf, size_t buf_cap, int timeout_ms)
 {
     if (!ev || !buf) return INN_ERR_NULL_POINTER;
@@ -936,7 +952,7 @@ int innet_receive(innet_id_t receiver, innet_event_t *ev, void *buf, size_t buf_
         return INN_ERR_CLOSED;
     }
 
-    // Wait for event
+    /* Wait for event */
     while (node->inbox.empty() && !node->closed)
     {
         if (timeout_ms == 0)
@@ -971,13 +987,13 @@ int innet_receive(innet_id_t receiver, innet_event_t *ev, void *buf, size_t buf_
     node->inbox.pop_front();
     pthread_mutex_unlock(&node->inbox_lock);
 
-    // Copy to user event struct
+    /* Copy to user event struct */
     ev->event = internal_ev.event;
     ev->sender = internal_ev.sender;
     ev->receiver = internal_ev.receiver;
     ev->size = internal_ev.payload.size();
 
-    // Copy payload
+    /* Copy payload */
     if (internal_ev.payload.size() > buf_cap)
     {
         return INN_ERR_NOMEM;
@@ -1003,6 +1019,8 @@ int innet_receive(innet_id_t receiver, innet_event_t *ev, void *buf, size_t buf_
 //                                                                                                                                                             █████                                               
 //                                                                                                                                                            ░░░░░                                                
 
+/* Get number of subscribers for node */
+/* Returns number of subscribers */
 int innet_pub_num(innet_id_t id)
 {
     Node *node = nullptr;
@@ -1024,6 +1042,8 @@ int innet_pub_num(innet_id_t id)
     return num;
 }
 
+/* Get inbox length for node */
+/* Returns INN_OK on success */
 int innet_inbox_len(innet_id_t id, size_t *len)
 {
     if (!len)
@@ -1048,6 +1068,8 @@ int innet_inbox_len(innet_id_t id, size_t *len)
     return INN_OK;
 }
 
+/* Get cache size and validity for node */
+/* Returns INN_OK on success */
 int innet_cache_size(innet_id_t id, size_t *size, int *has_data)
 {
     if (!size || !has_data)
@@ -1066,8 +1088,7 @@ int innet_cache_size(innet_id_t id, size_t *size, int *has_data)
         pthread_rwlock_unlock(&s_nodes_rwlock);
     }
 
-    if (!(node->flags & INN_CONF_CACHED))
-    {
+    if (!(node->flags & INN_CONF_CACHED)) {
         return INN_ERR_NOSUPPORT;
     }
 
