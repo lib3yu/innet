@@ -3,7 +3,7 @@
 .PHONY: all demo demo1 demo2 demo3 clean
 
 # Target names
-DEMO_TARGET := demo
+DEMO_TARGET  := demo
 DEMO1_TARGET := demo1
 DEMO2_TARGET := demo2
 DEMO3_TARGET := demo3
@@ -16,17 +16,18 @@ SRCDIR := .
 INCDIR := ../include
 
 # Compiler and tools
-CC := gcc
+CC  := gcc
 CXX := g++
-LD := g++
+LD  := g++
 
 # Source files
 DEMO_SRCS := $(SRCDIR)/demo.c
 DEMO_OBJS := $(OBJDIR)/demo.o
 
 # Flags
-CFLAGS := -std=c11 -O2 -Wall -Wextra -pthread
-CFLAGS += -I$(INCDIR)/innet
+CFLAGS  := -std=c11 -O2 -Wall -Wextra -pthread
+CFLAGS  += -I$(INCDIR)/innet
+
 LDFLAGS := -L$(LIBDIR) -linnet -lpthread
 
 # Targets
@@ -68,7 +69,11 @@ $(OBJDIR):
 
 # Clean
 clean:
-	rm -f $(OBJDIR)/demo*.o $(BINDIR)/$(DEMO_TARGET) $(BINDIR)/$(DEMO1_TARGET) $(BINDIR)/$(DEMO2_TARGET) $(BINDIR)/$(DEMO3_TARGET)
+	rm -f $(OBJDIR)/demo*.o 
+	rm -f $(BINDIR)/$(DEMO_TARGET) 
+	rm -f $(BINDIR)/$(DEMO1_TARGET) 
+	rm -f $(BINDIR)/$(DEMO2_TARGET) 
+	rm -f $(BINDIR)/$(DEMO3_TARGET)
 
 # Help
 help:
