@@ -41,21 +41,25 @@ struct Event {
     std::vector<uint8_t> payload; /* Payload is copied */
 };
 
+
 class Inbox {
 public:
+    /* Constructs an Inbox with a given capacity and policy. */
     Inbox(size_t cap = 16, int pol = INN_INBOX_POLICY_DEFAULT)
-        : capacity(cap), policy(pol) {}
+        : capacity(cap), policy(pol), closed(false) {
+        m_size.store(0);
+    }
 
-    // 插入事件，成功返回 true，丢弃返回 false
-    // timeout_ms: 仅在 INN_INBOX_POLICY_BLOCK 策略下生效
-    // timeout_ms <= 0: 非阻塞 (对于BLOCK策略，如果满了会立即失败)
-    // timeout_ms > 0: 超时等待
+    /* Pushes an event into the inbox. */
     bool push(const Event &ev, int timeout_ms = -1) {
         UniqueLock lk(mtx);
-        if (closed) return false;
+        if (closed) {
+            return false;
+        }
 
         if (queue.size() < capacity) {
             queue.push_back(ev);
+            m_size.fetch_add(1, std::memory_order_relaxed);
             cv.signal();
             return true;
         }
@@ -68,18 +72,19 @@ public:
                 return true;
 
             case INN_INBOX_POLICY_BLOCK: {
-                if (timeout_ms <= 0) return false; // 非阻塞或无效超时，直接失败
+                if (timeout_ms <= 0) return false;
 
                 timespec ts;
                 get_time_ms(&ts, timeout_ms);
                 while (!closed && queue.size() >= capacity) {
-                    if (!cv.timedwait(lk, &ts)) {
-                        return false; // 超时
+                    if (cv.timedwait(lk, &ts) == ETIMEDOUT) {
+                        return false; // Timeout
                     }
                 }
                 if (closed) return false;
 
                 queue.push_back(ev);
+                m_size.fetch_add(1, std::memory_order_relaxed);
                 cv.signal();
                 return true;
             }
@@ -90,44 +95,51 @@ public:
         }
     }
 
-    // 接收事件
-    // timeout_ms < 0: 无限等待
-    // timeout_ms == 0: 非阻塞
-    // timeout_ms > 0: 超时等待
-    bool pop(Event &out, int timeout_ms = -1) {
+    /* Peeks at the event at the front of the queue without removing it. */
+    bool peek(Event &out, int timeout_ms = -1) {
         UniqueLock lk(mtx);
 
-        auto not_empty_or_closed = [this]() {
+        auto condition_check = [this]() {
             return !queue.empty() || closed;
         };
 
-        if (timeout_ms < 0) {
-            while (!not_empty_or_closed()) {
-                cv.wait(lk);
-            }
-        } else if (timeout_ms == 0) {
-            if (!not_empty_or_closed()) return false;
-        } else {
-            timespec ts;
-            get_time_ms(&ts, timeout_ms);
-            while (!not_empty_or_closed()) {
-                if (!cv.timedwait(lk, &ts)) {
-                    return false; // timeout
+        if (!condition_check()) {
+            if (timeout_ms < 0) {
+                while (!condition_check()) {
+                    cv.wait(lk);
+                }
+            } else if (timeout_ms == 0) {
+                return false; // Non-blocking, fail immediately
+            } else {
+                timespec ts;
+                get_time_ms(&ts, timeout_ms);
+                while (!condition_check()) {
+                    if (cv.timedwait(lk, &ts) == ETIMEDOUT) {
+                        return false; // Timeout
+                    }
                 }
             }
         }
+        
+        if (!queue.empty()) {
+            out = queue.front(); // Copy only, do not remove
+            return true;
+        }
 
-        if (closed) return false;
-        if (queue.empty()) return false;
-
-        out = std::move(queue.front());
-        queue.pop_front();
-
-        // 唤醒可能等待 push 的线程
-        cv.signal();
-        return true;
+        return false;
     }
 
+    /* Consumes (removes) the first event from the front of the queue. */
+    void consume() {
+        UniqueLock lk(mtx);
+        if (!queue.empty()) {
+            queue.pop_front();
+            m_size.fetch_sub(1, std::memory_order_relaxed);
+            cv.signal();
+        }
+    }
+
+    /* Closes the inbox, preventing any new events from being pushed. */
     void close() {
         UniqueLock lk(mtx);
         closed = true;
@@ -137,11 +149,12 @@ public:
     void set_policy(int p) { policy = p; }
     void set_capacity(size_t cap) { capacity = cap; }
 
-    size_t size() {
-        UniqueLock lk(mtx);
-        return queue.size();
+    /* Returns the current number of events in the inbox. */
+    size_t size() const {
+        return m_size.load(std::memory_order_relaxed);
     }
 
+    /** Checks if the inbox is closed. */
     bool is_closed() {
         UniqueLock lk(mtx);
         return closed;
@@ -152,12 +165,12 @@ private:
     int policy;
 
     std::deque<Event> queue;
-    bool closed = false;
+    std::atomic<size_t> m_size;
+    bool closed;
 
     Mutex mtx;
     CondVar cv;
 };
-
 
 
 struct Node {
@@ -538,7 +551,7 @@ int innet_publish(innet_id_t pub, const void *data, size_t size, uint32_t timeou
     if (pub_node->flags & INN_CONF_CACHED)
     {
         LockGuard lk(pub_node->cache_lock);
-        if (size <= pub_node->cache.size()) {
+        if (pub_node->cache.size() >= size) {
             if (data)
                 memcpy(pub_node->cache.data(), data, size);
             pub_node->cache_valid = true;
@@ -593,30 +606,34 @@ int innet_receive(innet_id_t receiver, innet_event_t *ev, void *buf, size_t buf_
     auto node = NodeMgr::get_node(receiver);
     if (!node) return INN_ERR_NOTFOUND;
 
-    /* Check if this is a pure publish node with no inbox */
     if (!node->inbox) {
-        return INN_ERR_NOSUPPORT; // Pure publish nodes don't support receive
-    }
-
-    if (node->inbox->is_closed() && node->inbox->size() == 0) {
-        return INN_ERR_CLOSED;
+        return INN_ERR_NOSUPPORT;
     }
 
     Event internal_ev;
-    if (!node->inbox->pop(internal_ev, timeout_ms)) {
+
+    // Step 1: "peek" at the message without removing it from the queue.
+    // This gives us a safe copy to inspect.
+    if (!node->inbox->peek(internal_ev, timeout_ms)) {
         return node->inbox->is_closed() ? INN_ERR_CLOSED : INN_ERR_TIMEOUT;
     }
 
-    /* Copy to user event struct */
+    /* Step 2: Check if the user's buffer is sufficient. */ 
+    if (buf_cap < internal_ev.payload.size()) {
+        /* buffer is too small */
+        return INN_ERR_NOMEM;
+    }
+
+    /* Step 3: All checks passed. Now, we commit by "consuming" the message. */
+    node->inbox->consume();
+
+    /* Step 4: Copy the data to the user's buffers. */ 
     ev->event = internal_ev.event;
     ev->sender = internal_ev.sender;
     ev->receiver = internal_ev.receiver;
     ev->size = internal_ev.payload.size();
 
     /* Copy payload */
-    if (internal_ev.payload.size() > buf_cap)
-        return INN_ERR_NOMEM;
-
     if (!internal_ev.payload.empty())
         memcpy(buf, internal_ev.payload.data(), internal_ev.payload.size());
 

@@ -1,12 +1,23 @@
 # Workspace Directory Structure
 
-include/innet/innet.h
-src/innet.cpp
-Makefile
-examples/demo.c
-examples/demo2.c
-examples/Makefile
-scripts/
-proj.code-workspace
-README.md
-
+```bash
+.
+├── examples
+│   ├── demo_industry.c
+│   ├── demo_pubsub.c
+│   └── Makefile
+├── include
+│   └── innet
+│       └── innet.h
+├── lib
+│   ├── libinnet.a
+│   └── libinnet.so
+├── Makefile
+├── proj.code-workspace
+├── README.md
+├── src
+│   ├── innet.cpp
+│   └── innet_lock.hpp
+└── tests
+    └── Makefile
+```

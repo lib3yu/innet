@@ -1,6 +1,6 @@
 # Makefile for innet library
 
-.PHONY: all clean install demo
+.PHONY: all clean install demo test
 
 # Target names
 TARGET := innet
@@ -67,4 +67,11 @@ demo: $(DEMO_TARGETS)
 	@echo "\e[32m" 
 	@echo "### Successfully built all demo programs: $^"
 	@echo "### Run demo: LD_LIBRARY_PATH=lib/ ./bin/demo_xxx" 
+	@echo "\e[0m"
+
+test: all
+	$(MAKE) -C tests
+	@echo "\e[32m" 
+	@echo "### Successfully built test programs: $^"
+	@echo "### Run test: LD_LIBRARY_PATH=lib/ ./bin/test-unit" 
 	@echo "\e[0m"

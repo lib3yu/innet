@@ -39,6 +39,8 @@
 		],
 		"C_Cpp.default.browse.path": [
 			"${workspaceFolder}/src",
+			"${workspaceFolder}/tests",
+			"${workspaceFolder}/examples",
 		],
 		
 		"makefile.makefilePath": "${workspaceFolder}/Makefile",
@@ -52,7 +54,20 @@
 		"tasks": [
 			{
 				"label": "Build Demo",
-				"command": "make clean && make && make -C examples/",
+				"command": "make demo",
+				"type": "shell",
+				"args": [],
+				"problemMatcher": [
+					"$tsc"
+				],
+				"presentation": {
+					"reveal": "always"
+				},
+				"group": "build"
+			},
+			{
+				"label": "Build GTest",
+				"command": "make test",
 				"type": "shell",
 				"args": [],
 				"problemMatcher": [
@@ -72,10 +87,30 @@
 				"name": "Debug Demo",
 				"type": "cppdbg",
 				"request": "launch",
-				"program": "${workspaceFolder}/bin/demo",
+				"program": "${workspaceFolder}/bin/demo_industry",
 				"args": [],
 				"stopAtEntry": true,
 				"preLaunchTask": "Build Demo",
+				"cwd": "${workspaceFolder}",
+				"environment": [
+                    {
+                        "name": "LD_LIBRARY_PATH",
+                        "value": "${workspaceFolder}/lib/"
+                    },
+                ],
+				"externalConsole": false,
+				"MIMode": "gdb",
+				"miDebuggerPath": "/usr/bin/gdb",
+				"setupCommands": []
+			},
+			{
+				"name": "Debug GTest",
+				"type": "cppdbg",
+				"request": "launch",
+				"program": "${workspaceFolder}/bin/test-unit",
+				"args": [],
+				"stopAtEntry": true,
+				"preLaunchTask": "Build GTest",
 				"cwd": "${workspaceFolder}",
 				"environment": [
                     {

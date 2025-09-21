@@ -203,10 +203,10 @@ void *sensor_thread_func(void *arg)
 
         snprintf(buffer, sizeof(buffer), "Publishing temperature: %.2f C", temp_data.temperature);
         print_safe("TempSensor Thread", buffer);
-        innet_publish(sensor_id, &temp_data, sizeof(temp_data), 10);
+        innet_publish(sensor_id, &temp_data, sizeof(temp_data), 1000);
 
         // sleep(2);
-        usleep(110*1000);
+        usleep(1100*1000);
     }
     print_safe("TempSensor Thread", "Thread shutting down.");
     return NULL;

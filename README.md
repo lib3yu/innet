@@ -155,7 +155,7 @@ int innet_remove_node(innet_id_t id);
 ```c
 int innet_subscribe(innet_id_t subscriber, const char *pub_name);
 int innet_unsubscribe(innet_id_t subscriber, innet_id_t publisher);
-int innet_publish(innet_id_t pub, const void *data, size_t size, uint32_t timeout_ms);
+int innet_publish(innet_id_t pub, const void *data, size_t size);
 ```
 
 ### 接收消息
