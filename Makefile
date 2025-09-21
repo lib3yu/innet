@@ -66,7 +66,10 @@ install:
 demo: $(DEMO_TARGETS)
 	@echo "\e[32m" 
 	@echo "### Successfully built all demo programs: $^"
-	@echo "### Run demo: LD_LIBRARY_PATH=lib/ ./bin/demo_xxx" 
+	@echo "### Run each demo with:"
+	@for program in $(DEMO_TARGETS); do \
+		echo "    LD_LIBRARY_PATH=lib/ ./$(BINDIR)/$$program"; \
+	done
 	@echo "\e[0m"
 
 test: all
