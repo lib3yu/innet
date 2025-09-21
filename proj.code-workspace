@@ -28,8 +28,8 @@
         "C_Cpp.default.browse.databaseFilename": "${workspaceFolder}/.vscode/.browse.vc.db",
         // "C_Cpp.loggingLevel": "Debug",
 		"C_Cpp.default.compilerPath": "/usr/bin/gcc",
-		"C_Cpp.default.cStandard": "c17",
-		"C_Cpp.default.cppStandard": "c++17",
+		"C_Cpp.default.cStandard": "c11",
+		"C_Cpp.default.cppStandard": "c++11",
 		"C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
 		"C_Cpp.default.includePath": [
 			"${workspaceFolder}/include/innet",
@@ -52,7 +52,7 @@
 		"tasks": [
 			{
 				"label": "Build Demo",
-				"command": "make clean && make ",
+				"command": "make clean && make && make -C examples/",
 				"type": "shell",
 				"args": [],
 				"problemMatcher": [
@@ -69,15 +69,20 @@
 		"version": "0.2.0",
 		"configurations": [
 			{
-				"name": "Debug Demo1",
+				"name": "Debug Demo",
 				"type": "cppdbg",
 				"request": "launch",
-				"program": "${workspaceFolder}/bin/demo1",
+				"program": "${workspaceFolder}/bin/demo",
 				"args": [],
 				"stopAtEntry": true,
 				"preLaunchTask": "Build Demo",
 				"cwd": "${workspaceFolder}",
-				"environment": [],
+				"environment": [
+                    {
+                        "name": "LD_LIBRARY_PATH",
+                        "value": "${workspaceFolder}/lib/"
+                    },
+                ],
 				"externalConsole": false,
 				"MIMode": "gdb",
 				"miDebuggerPath": "/usr/bin/gdb",

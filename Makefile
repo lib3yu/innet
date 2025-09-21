@@ -1,10 +1,12 @@
-# Simplified Makefile for innet library
+# Makefile for innet library
 
-.PHONY: all clean install
+.PHONY: all clean install demo
 
 # Target names
 TARGET := innet
 LIBRARY_NAME := $(TARGET)
+
+DEMO_TARGETS := demo_industry demo_pubsub
 
 # Directories
 BINDIR := bin
@@ -23,9 +25,9 @@ SRCS := $(SRCDIR)/innet.cpp
 OBJS := $(OBJDIR)/innet.o
 
 # Flags
-CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -fPIC -pthread
+CXXFLAGS := -std=c++11 -O0 -g -Wall -Wextra -fPIC -pthread
 CXXFLAGS += -I$(INCDIR)/innet
-LDFLAGS := -lpthread -lstdc++
+LDFLAGS := -lpthread
 
 # Targets
 all: $(LIBDIR)/lib$(LIBRARY_NAME).so $(LIBDIR)/lib$(LIBRARY_NAME).a
@@ -38,6 +40,9 @@ $(LIBDIR)/lib$(LIBRARY_NAME).a: $(OBJS) | $(LIBDIR)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.cpp | $(OBJDIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(DEMO_TARGETS): all 
+	$(MAKE) -C examples $@
 
 # Directory creation
 $(BINDIR):
@@ -57,3 +62,9 @@ clean:
 install:
 	cp $(LIBDIR)/lib$(LIBRARY_NAME).* /usr/local/lib/
 	cp -r $(INCDIR)/* /usr/local/include/
+
+demo: $(DEMO_TARGETS)
+	@echo "\e[32m" 
+	@echo "### Successfully built all demo programs: $^"
+	@echo "### Run demo: LD_LIBRARY_PATH=lib/ ./bin/demo_xxx" 
+	@echo "\e[0m"
